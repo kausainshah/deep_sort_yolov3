@@ -1,5 +1,4 @@
-QQ group: 姿态检测＆跟踪 781184396
-
+# Kausain Updated Repo
 # Introduction
   Thanks for these projects, this work now is support tiny_yolo v3 but only for test, if you want to train you can either train a model in darknet or in the second following works. It also can tracks many objects in coco classes, so please note to modify the classes in yolo.py. besides, you also can use camera for testing.
 
@@ -12,7 +11,7 @@ QQ group: 姿态检测＆跟踪 781184396
 # Quick Start
 
 1. Download YOLOv3 or tiny_yolov3 weights from [YOLO website](http://pjreddie.com/darknet/yolo/).Then convert the Darknet YOLO model to a Keras model. Or use what i had converted https://drive.google.com/file/d/1uvXFacPnrSMw6ldWTyLLjGLETlEsUvcE/view?usp=sharing (yolo.h5 model file with tf-1.4.0) , put it into model_data folder
-2. Run YOLO_DEEP_SORT with cmd :
+2. Run YOLO_DEEP_SORT with cmd for webcam video:
    ```
    python demo.py
    ```
