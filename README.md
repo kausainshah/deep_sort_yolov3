@@ -50,7 +50,7 @@
   
   Model file model_data/mars-small128.pb need by deep_sort had convert to tensorflow-1.4.0
   
-  Deep sort 程序结构见 “model_data/DeepSORT”，如有错误欢迎联系修改。
+  See the "model_data/DeepSORT" for the structure of the Deep sort program. If you have any errors, please feel free to contact us.。
  
 # Test only
 

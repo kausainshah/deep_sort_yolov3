@@ -20,34 +20,43 @@ from tools import generate_detections as gdet
 from deep_sort.detection import Detection as ddet
 warnings.filterwarnings('ignore')
 
+
 def main(yolo):
 
    # Definition of the parameters
     max_cosine_distance = 0.3
     nn_budget = None
     nms_max_overlap = 1.0
-    
-   # deep_sort 
+
+   # deep_sort
     model_filename = 'model_data/mars-small128.pb'
-    encoder = gdet.create_box_encoder(model_filename,batch_size=1)
-    
-    metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
+    encoder = gdet.create_box_encoder(model_filename, batch_size=1)
+
+    metric = nn_matching.NearestNeighborDistanceMetric(
+        "cosine", max_cosine_distance, nn_budget)
     tracker = Tracker(metric)
 
-    writeVideo_flag = True 
-    
+    writeVideo_flag = True
+
     video_capture = cv2.VideoCapture(0)
 
     if writeVideo_flag:
-    # Define the codec and create VideoWriter object
+        # Define the codec and create VideoWriter object
         w = int(video_capture.get(3))
         h = int(video_capture.get(4))
+        print("\n\n(w, h) = ", w, h, "\n\n")
         fourcc = cv2.VideoWriter_fourcc(*'MJPG')
         out = cv2.VideoWriter('output.avi', fourcc, 15, (w, h))
         list_file = open('detection.txt', 'w')
-        frame_index = -1 
-        
+        frame_index = -1
+
     fps = 0.0
+
+    # no of persn detections in frame
+    footfall = 0
+    # A set to check if track id is new or older one...
+    track_ids_counted = set([])
+
     while True:
         ret, frame = video_capture.read()  # frame shape 640*480*3
         if ret != True:
@@ -55,50 +64,76 @@ def main(yolo):
         t1 = time.time()
 
        # image = Image.fromarray(frame)
-        image = Image.fromarray(frame[...,::-1]) #bgr to rgb
+        image = Image.fromarray(frame[..., ::-1])  # bgr to rgb
         boxs = yolo.detect_image(image)
        # print("box_num",len(boxs))
-        features = encoder(frame,boxs)
-        
+        features = encoder(frame, boxs)
+
         # score to 1.0 here).
-        detections = [Detection(bbox, 1.0, feature) for bbox, feature in zip(boxs, features)]
-        
+        detections = [Detection(bbox, 1.0, feature)
+                      for bbox, feature in zip(boxs, features)]
+
         # Run non-maxima suppression.
         boxes = np.array([d.tlwh for d in detections])
         scores = np.array([d.confidence for d in detections])
-        indices = preprocessing.non_max_suppression(boxes, nms_max_overlap, scores)
+        indices = preprocessing.non_max_suppression(
+            boxes, nms_max_overlap, scores)
         detections = [detections[i] for i in indices]
-        
+
         # Call the tracker
         tracker.predict()
         tracker.update(detections)
-        
+
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
-                continue 
+                continue
             bbox = track.to_tlbr()
-            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
-            cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
+
+            # trackers B_Box
+            tracker_bbox = bbox
+            # tracker_bbox[0], tracker_bbox[1] = Point 1
+
+            # tracker_bbox[2], tracker_bbox[3] = Point 2
+
+            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(
+                bbox[2]), int(bbox[3])), (255, 255, 255), 2)
+            cv2.putText(frame, str(track.track_id), (int(
+                bbox[0]), int(bbox[1])), 0, 5e-3 * 200, (0, 255, 0), 2)
+
+            # print("..........", track.track_id)
+
+            # footfall_object_leaves_frame(w, h, tracker_bbox)
+
+            if track.track_id not in track_ids_counted:
+                footfall += 1
+                track_ids_counted.add(track.track_id)
+
+        # print(".............", track_ids_counted)
 
         for det in detections:
             bbox = det.to_tlbr()
-            cv2.rectangle(frame,(int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,0,0), 2)
-            
+            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(
+                bbox[2]), int(bbox[3])), (255, 0, 0), 2)
+            # footfall += 1
+
+        cv2.putText(frame, "Footfall = {}".format(footfall), (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
         cv2.imshow('', frame)
-        
+
         if writeVideo_flag:
             # save a frame
             out.write(frame)
             frame_index = frame_index + 1
             list_file.write(str(frame_index)+' ')
             if len(boxs) != 0:
-                for i in range(0,len(boxs)):
-                    list_file.write(str(boxs[i][0]) + ' '+str(boxs[i][1]) + ' '+str(boxs[i][2]) + ' '+str(boxs[i][3]) + ' ')
+                for i in range(0, len(boxs)):
+                    list_file.write(str(
+                        boxs[i][0]) + ' '+str(boxs[i][1]) + ' '+str(boxs[i][2]) + ' '+str(boxs[i][3]) + ' ')
             list_file.write('\n')
-            
-        fps  = ( fps + (1./(time.time()-t1)) ) / 2
-        print("fps= %f"%(fps))
-        
+
+        fps = (fps + (1./(time.time()-t1))) / 2
+        print("fps= %f" % (fps))
+
         # Press Q to stop!
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -108,6 +143,54 @@ def main(yolo):
         out.release()
         list_file.close()
     cv2.destroyAllWindows()
+
+
+def footfall_object_leaves_frame(_frame_w, _frame_h, _tracker_bbox):
+    """
+    To make boundries in the frame for footfall incrementation purpose 
+
+    Parameters
+    ----------
+    _frame_w : int
+        width of frame
+    _frame_h : int
+        height of frame
+    _tracker_bbox : list
+        list[3] as two points for rectangle  
+
+
+    print_cols : bool, optional
+        A flag used to print the columns to the console (default is False)
+
+    Returns
+    -------
+    bool
+        returs true if object leaves frame following defined criterion 
+    """
+
+    # making two straight lines at right and left side of frame
+    # id objects pass the line then will be considered as
+    # leaving frame else not....
+
+    # No of pixels from left and right side of the image
+    # 10 pixels form both sides
+    left_boundry_ = (10, 0)
+    right_boundry_ = (_frame_w - 10, 0)
+
+    tracker_bbox_center_horizontal_ = int(
+        (_tracker_bbox[2] - _tracker_bbox[0]) / 2)
+
+    tracker_bbox_center_verticle_ = int(
+        (_tracker_bbox[1] - _tracker_bbox[3]) / 2)
+
+    # tracker_bbox_center_ = (tracker_bbox_center_horizontal_,
+    #                         tracker_bbox_center_verticle_)
+
+    if tracker_bbox_center_horizontal_ < left_boundry_[0] or tracker_bbox_center_horizontal_ > right_boundry_[0]:
+        return True
+
+    return False
+
 
 if __name__ == '__main__':
     main(YOLO())
