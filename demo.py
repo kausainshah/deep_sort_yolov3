@@ -104,7 +104,7 @@ def main(yolo):
 
             # footfall_object_leaves_frame(w, h, tracker_bbox)
 
-            if track.track_id not in track_ids_counted:
+            if footfall_object_leaves_frame(w, h, tracker_bbox, 50) and track.track_id not in track_ids_counted:
                 footfall += 1
                 track_ids_counted.add(track.track_id)
 
@@ -145,7 +145,7 @@ def main(yolo):
     cv2.destroyAllWindows()
 
 
-def footfall_object_leaves_frame(_frame_w, _frame_h, _tracker_bbox):
+def footfall_object_leaves_frame(_frame_w, _frame_h, _tracker_bbox, _pixels_threshold):
     """
     To make boundries in the frame for footfall incrementation purpose 
 
@@ -157,7 +157,8 @@ def footfall_object_leaves_frame(_frame_w, _frame_h, _tracker_bbox):
         height of frame
     _tracker_bbox : list
         list[3] as two points for rectangle  
-
+    _pixels_threshold : int
+        threshold for left and right frames boundry line
 
     print_cols : bool, optional
         A flag used to print the columns to the console (default is False)
@@ -174,14 +175,20 @@ def footfall_object_leaves_frame(_frame_w, _frame_h, _tracker_bbox):
 
     # No of pixels from left and right side of the image
     # 10 pixels form both sides
-    left_boundry_ = (10, 0)
-    right_boundry_ = (_frame_w - 10, 0)
+    left_boundry_ = (_pixels_threshold, 0)
+    right_boundry_ = (_frame_w - _pixels_threshold, 0)
+
+    print("R B ===", right_boundry_)
 
     tracker_bbox_center_horizontal_ = int(
         (_tracker_bbox[2] - _tracker_bbox[0]) / 2)
 
-    tracker_bbox_center_verticle_ = int(
-        (_tracker_bbox[1] - _tracker_bbox[3]) / 2)
+    tracker_bbox_center_horizontal_ = tracker_bbox_center_horizontal_ + \
+        _tracker_bbox[0]
+    print("...........", tracker_bbox_center_horizontal_)
+
+    # tracker_bbox_center_verticle_ = int(
+    #     (_tracker_bbox[1] - _tracker_bbox[3]) / 2)
 
     # tracker_bbox_center_ = (tracker_bbox_center_horizontal_,
     #                         tracker_bbox_center_verticle_)
